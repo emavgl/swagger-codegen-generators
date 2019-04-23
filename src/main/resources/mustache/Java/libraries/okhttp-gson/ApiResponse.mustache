@@ -4,6 +4,7 @@ package {{invokerPackage}};
 
 import java.util.List;
 import java.util.Map;
+import com.squareup.okhttp.*;
 
 /**
  * API response returned by API call.
@@ -14,6 +15,8 @@ public class ApiResponse<T> {
     final private int statusCode;
     final private Map<String, List<String>> headers;
     final private T data;
+    final private String responseBody;
+    private Request request;
 
     /**
      * @param statusCode The status code of HTTP response
@@ -26,12 +29,21 @@ public class ApiResponse<T> {
     /**
      * @param statusCode The status code of HTTP response
      * @param headers The headers of HTTP response
+     */
+    public ApiResponse(int statusCode, Map<String, List<String>> headers, String responseBody) {
+        this(statusCode, headers, null, responseBody);
+    }
+
+    /**
+     * @param statusCode The status code of HTTP response
+     * @param headers The headers of HTTP response
      * @param data The object deserialized from response bod
      */
-    public ApiResponse(int statusCode, Map<String, List<String>> headers, T data) {
+    public ApiResponse(int statusCode, Map<String, List<String>> headers, T data, String responseBody) {
         this.statusCode = statusCode;
         this.headers = headers;
         this.data = data;
+        this.responseBody = responseBody;
     }
 
     public int getStatusCode() {
@@ -44,5 +56,25 @@ public class ApiResponse<T> {
 
     public T getData() {
         return data;
+    }
+
+    public String getResponseBody() {
+        return responseBody;
+    }
+
+    /**
+     * Get the HTTP request.
+     *
+     * @return Request
+     */
+    public Request getRequest() {
+        return request;
+    }
+
+    /**
+     * Set the HTTP request.
+    */
+    public void setRequest(Request request) {
+        this.request = request;
     }
 }

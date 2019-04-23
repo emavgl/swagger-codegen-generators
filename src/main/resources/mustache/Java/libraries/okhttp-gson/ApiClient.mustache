@@ -681,6 +681,15 @@ public class ApiClient {
         }
     }
 
+    public class ParsedObjectWithBody<T> {
+        public T parsedObject;
+        public String responseBody;
+        public ParsedObjectWithBody(String responseBody, T parsedObject) {
+            this.responseBody = responseBody;
+            this.parsedObject = parsedObject;
+        }
+    }
+
     /**
      * Deserialize response body to Java object, according to the return type and
      * the Content-Type response header.
@@ -693,7 +702,9 @@ public class ApiClient {
      *   or the Content-Type of the response is not supported.
      */
     @SuppressWarnings("unchecked")
-    public <T> T deserialize(Response response, Type returnType) throws ApiException {
+    public <T> ParsedObjectWithBody<T> deserialize(Response response, Type returnType) throws ApiException {
+        T parsedObject = null;
+
         if (response == null || returnType == null) {
             return null;
         }
@@ -701,13 +712,13 @@ public class ApiClient {
         if ("byte[]".equals(returnType.toString())) {
             // Handle binary response (byte array).
             try {
-                return (T) response.body().bytes();
+                parsedObject = (T) response.body().bytes();
             } catch (IOException e) {
                 throw new ApiException(e);
             }
         } else if (returnType.equals(File.class)) {
             // Handle file downloading.
-            return (T) downloadFileFromResponse(response);
+            parsedObject = (T) downloadFileFromResponse(response);
         }
 
         String respBody;
@@ -721,7 +732,7 @@ public class ApiClient {
         }
 
         if (respBody == null || "".equals(respBody)) {
-            return null;
+            return new ParsedObjectWithBody<T>(respBody, parsedObject);
         }
 
         String contentType = response.headers().get("Content-Type");
@@ -730,10 +741,10 @@ public class ApiClient {
             contentType = "application/json";
         }
         if (isJsonMime(contentType)) {
-            return json.deserialize(respBody, returnType);
+            parsedObject = json.deserialize(respBody, returnType);
         } else if (returnType.equals(String.class)) {
             // Expecting string, return the raw response body.
-            return (T) respBody;
+            parsedObject = (T) respBody;
         } else {
             throw new ApiException(
                     "Content type \"" + contentType + "\" is not supported for type: " + returnType,
@@ -741,6 +752,8 @@ public class ApiClient {
                     response.headers().toMultimap(),
                     respBody);
         }
+
+        return new ParsedObjectWithBody<T>(respBody, parsedObject);
     }
 
     /**
@@ -860,10 +873,24 @@ public class ApiClient {
     public <T> ApiResponse<T> execute(Call call, Type returnType) throws ApiException {
         try {
             Response response = call.execute();
-            T data = handleResponse(response, returnType);
-            return new ApiResponse<T>(response.code(), response.headers().toMultimap(), data);
+            ParsedObjectWithBody<T> parsedWithBody = handleResponse(response, returnType);
+            ApiResponse<T> returnResponse = null;
+            if (parsedWithBody != null) {
+                T data = data = parsedWithBody.parsedObject;
+                String responseBody = parsedWithBody.responseBody;
+                returnResponse = new ApiResponse<T>(response.code(), response.headers().toMultimap(), data, responseBody);
+            } else {
+                returnResponse = new ApiResponse<T>(response.code(), response.headers().toMultimap(), null, null);
+            }
+            returnResponse.setRequest(this.request);
+            return returnResponse;
         } catch (IOException e) {
-            throw new ApiException(e);
+            ApiException apiException = new ApiException(e);
+            apiException.setRequest(this.request);
+            throw apiException;
+        } catch (ApiException e) {
+            e.setRequest(this.request);
+            throw e;
         }
     }
 
@@ -919,7 +946,7 @@ public class ApiClient {
      *   fail to deserialize the response body
      * @return Type
      */
-    public <T> T handleResponse(Response response, Type returnType) throws ApiException {
+    public <T> ParsedObjectWithBody<T> handleResponse(Response response, Type returnType) throws ApiException {
         if (response.isSuccessful()) {
             if (returnType == null || response.code() == 204) {
                 // returning null if the returnType is not defined,
@@ -948,6 +975,10 @@ public class ApiClient {
         }
     }
 
+    // forgive me
+    // but using okhttp2 you cannot access Request from a Call instance
+    private Request request = null;
+
     /**
      * Build HTTP call with the given options.
      *
@@ -964,9 +995,9 @@ public class ApiClient {
      * @throws ApiException If fail to serialize the request body object
      */
     public Call buildCall(String path, String method, List<Pair> queryParams, List<Pair> collectionQueryParams, Object body, Map<String, String> headerParams, Map<String, Object> formParams, String[] authNames, ProgressRequestBody.ProgressRequestListener progressRequestListener) throws ApiException {
-        Request request = buildRequest(path, method, queryParams, collectionQueryParams, body, headerParams, formParams, authNames, progressRequestListener);
-
-        return httpClient.newCall(request);
+        Request newReq = buildRequest(path, method, queryParams, collectionQueryParams, body, headerParams, formParams, authNames, progressRequestListener);
+        this.request = newReq;
+        return httpClient.newCall(newReq);
     }
 
     /**
