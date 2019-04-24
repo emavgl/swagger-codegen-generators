@@ -1881,6 +1881,7 @@ public abstract class DefaultCodegenConfig implements CodegenConfig {
         }
         operationId = removeNonNameElementToCamelCase(operationId);
         codegenOperation.path = path;
+        codegenOperation.operation = operation;
         codegenOperation.operationId = toOperationId(operationId);
         codegenOperation.summary = escapeText(operation.getSummary());
         codegenOperation.unescapedNotes = operation.getDescription();
@@ -2305,6 +2306,7 @@ public abstract class DefaultCodegenConfig implements CodegenConfig {
 
         if (parameter.getSchema() != null) {
             Schema parameterSchema = parameter.getSchema();
+            codegenParameter.schema = parameterSchema;
             String collectionFormat = null;
             if (parameterSchema instanceof ArraySchema) { // for array parameter
                 final ArraySchema arraySchema = (ArraySchema) parameterSchema;
@@ -2598,6 +2600,7 @@ public abstract class DefaultCodegenConfig implements CodegenConfig {
                 imports.add(codegenProperty.complexType);
             }
         }
+        codegenParameter.schema = schema;
         setParameterExampleValue(codegenParameter);
         postProcessParameter(codegenParameter);
         return codegenParameter;
