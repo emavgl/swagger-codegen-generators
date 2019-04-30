@@ -196,12 +196,12 @@
 		    <url>https://jitpack.io</url>
 		</repository>
 	</repositories>
-    
+
     <dependencies>
         <dependency>
-                <groupId>com.github.emavgl</groupId>
-                <artifactId>swagger-codegen</artifactId>
-                <version>3.0.0-SNAPSHOT</version>
+            <groupId>com.github.emavgl.swagger-codegen</groupId>
+            <artifactId>swagger-codegen</artifactId>
+            <version>20e93e5623</version>
         </dependency>
         <dependency>
             <groupId>commons-io</groupId>
